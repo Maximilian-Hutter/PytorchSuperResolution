@@ -1,0 +1,9 @@
+/__pycache__
+/runs
+/weights
+.png
+/trainimg
+/old_trainimg
+/results
+/trainimg/
+/old_trainimg/
