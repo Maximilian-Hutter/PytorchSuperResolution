@@ -25,6 +25,7 @@ import logging
 from get_data import ImageDataset
 from models import SuperResolution
 from criterions import *
+import myutils
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch EDSR') #D:/Data/div2k/DIV2K_train_HR/
@@ -35,7 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--augment_data', type=bool, default=False, help=("if true augment train data"))
     parser.add_argument('--batchsize', type=int, default=1, help=("set batch Size"))
     parser.add_argument('--gpu_mode', type=bool, default=True) 
-    parser.add_argument('--threads', type=int, default=0, help='number of threads for data loader to use')
+    parser.add_argument('--threads', type=int, default=4, help='number of threads for data loader to use')
     parser.add_argument('--seed', type=int, default=123, help='random seed to use. Default=123')
     parser.add_argument('--save_folder', default='weights/', help='Location to save checkpoint models')
     parser.add_argument('--mini_batch',type=int, default=16, help='mini batch size')
@@ -130,6 +131,11 @@ if __name__ == '__main__':
     # define Tensor
     Tensor = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.Tensor
 
+    Net = Net.to(memory_format=torch.channels_last)  # faster train time with Computer vision models
+    torch.autograd.profiler.emit_nvtx(enabled=False)
+    torch.backends.cudnn.benchmark = True
+    scaler = torch.cuda.amp.GradScaler()
+
     for epoch in range(start_epoch, opt.nEpochs):
         epoch_loss = 0
         Net.train()
@@ -139,6 +145,7 @@ if __name__ == '__main__':
 
             start_time = time.time()
             img = Variable(imgs["img"].type(Tensor))
+            img = img.to(memory_format=torch.channels_last)  # faster train time with Computer vision models
             label = Variable(imgs["label"].type(Tensor))
 
             if cuda:    # put variables to gpu
@@ -146,31 +153,31 @@ if __name__ == '__main__':
                 label = label.to(gpus_list[0])
 
             # start train
-            optimizer.zero_grad()
+            for param in Net.parameters():
+                param.grad = None
 
-            generated_image = Net(img)
+            with torch.cuda.amp.autocast():
+                generated_image = Net(img)
+                #gen_features = feature_extractor(generated_image).detach()
+                #real_features = feature_extractor(label).detach()
+                #content_loss = content_criterion(gen_features, real_features)
+                crit = criterion(generated_image, label)
+                lum = luminance_criterion(generated_image, label)
+                loss = opt.cont_lambda + opt.crit_lambda *  crit + lum * opt.lum_lambda# + wht * opt.wht_lambda + blk * opt.blk_lambda   # add a vgg net feature extraction loss
+            
+
+
             if i == 1:
-                transform = T.ToPILImage()
-                gimg = transform(generated_image.squeeze(0))
-                #lab = transform(label.squeeze(0))
-                #inp = transform(img.squeeze(0))
-                gimg.save("trainimg/gen"+ str(epoch) +".png")
-                #lab.save("trainimg/label"+str(epoch) + ".png")
-                #inp.save("trainimg/input"+ str(epoch) +".png")
+                if opt.batchsize == 1:
+                    myutils.save_trainimg(generated_image, epoch)
 
-            gen_features = feature_extractor(generated_image).detach()
-            real_features = feature_extractor(label).detach()
-            content_loss = content_criterion(gen_features, real_features)
-            crit = criterion(generated_image, label)
-            lum = luminance_criterion(generated_image, label)
-            blk = blackness_criterion(generated_image, label)
-            wht = whiteness_criterion(generated_image, label)
-#
-            loss = content_loss * opt.cont_lambda + opt.crit_lambda *  crit + lum * opt.lum_lambda + wht * opt.wht_lambda + blk * opt.blk_lambda   # add a vgg net feature extraction loss
+
             train_acc = torch.sum(generated_image == label)
             epoch_loss += loss.item()
-            loss.sum().backward()
-            optimizer.step()
+
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
             #compute time and compute efficiency and print information
             process_time = time.time() - start_time
