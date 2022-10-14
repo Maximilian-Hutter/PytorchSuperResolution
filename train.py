@@ -30,8 +30,9 @@ import myutils
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch EDSR') #D:/Data/div2k/DIV2K_train_HR/
     parser.add_argument('--train_data_path', type=str, default="D:/Data/div2k/DIV2K_train_HR/", help=("path for the data"))
-    parser.add_argument('--height', type=int, default=1000, help=("set the height of the image in pixels"))
-    parser.add_argument('--width', type=int, default=1000, help=("set the width of the image in pixels"))
+    parser.add_argument('--height', type=int, default=256, help=("set the height of the image in pixels"))
+    parser.add_argument('--width', type=int, default=256, help=("set the width of the image in pixels"))
+    parser.add_argument('--crop_size', type=int, default=1024, help=("set the size of the cropping"))
     parser.add_argument('--imgchannels', type=int, default=3, help=("set the channels of the Image (default = RGB)"))
     parser.add_argument('--augment_data', type=bool, default=False, help=("if true augment train data"))
     parser.add_argument('--batchsize', type=int, default=1, help=("set batch Size"))
@@ -70,10 +71,8 @@ if __name__ == '__main__':
 
     # dataloader
 
-    size = (opt.height, opt.width)
-
     print('==> Loading Datasets')
-    dataloader = DataLoader(ImageDataset(opt.train_data_path,size, opt.scale,opt.augment_data), batch_size=opt.batchsize, shuffle=True, num_workers=opt.threads)
+    dataloader = DataLoader(ImageDataset(opt.train_data_path,(opt.height, opt.width), opt.crop_size,opt.scale,opt.augment_data), batch_size=opt.batchsize, shuffle=True, num_workers=opt.threads)
 
     # instantiate model
 

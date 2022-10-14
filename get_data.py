@@ -10,9 +10,10 @@ import torchvision.transforms as transforms
 from datatools import crop_center
 
 class ImageDataset(Dataset):
-    def __init__(self, root, size, scale,augmentation=0):
+    def __init__(self, root, size,crop_size, scale,augmentation=0):
 
         self.augmentation = augmentation
+        self.crop_size = crop_size
         self.size = size
         self.small_size = (int(size[0] / scale), int(size[1] / scale))
         self.imgs = sorted(glob.glob(root + "/*.*"))
@@ -22,11 +23,12 @@ class ImageDataset(Dataset):
 
 
         label = Image.open(self.imgs[index % len(self.imgs)])
-        label = crop_center(label, self.size[1], self.size[0])
-        img = label.resize(self.small_size)
+        label = crop_center(label, self.crop_size, self.crop_size)
+        label = label.resize(size = self.size)
+        img = label.resize(size = self.small_size)
         
         transform = transforms.Compose([
-            transforms.ToTensor(),  #### use this !!!!!!!!!!!!!!!!
+            transforms.ToTensor(),  #### use this !!!
         ])
 
         img = transform(img)

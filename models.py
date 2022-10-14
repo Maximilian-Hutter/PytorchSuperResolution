@@ -46,7 +46,7 @@ class ResBlock(nn.Module):
 
         res = x
         out = self.model(x)
-        out = torch.mul(out, 0.1)
+        #out = torch.mul(out, 0.1)
         out = torch.add(out, res)
 
         return out
@@ -58,6 +58,7 @@ class SkippedBlock(nn.Module):
         m = []
         for _ in range(1, n_resblock):
             m.append(ResBlock(filters, bottleneck))
+            #m.append(nn.Dropout2d())
         self.resblocks = nn.Sequential(*m)
         self.conv = ConvBlock(filters, filters)
 
