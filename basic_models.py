@@ -1,18 +1,22 @@
 import torch.nn as nn
 import torch
+import torch.nn.functional as F
 
 class DLKCB(nn.Module):
     def __init__(self, in_feat, out_feat, kernel=3, stride = 1, pad = 0):
         super(DLKCB, self).__init__()
         
+        self.pad = (pad,pad,pad,pad)
+        self.refpad = nn.ReflectionPad2d(self.pad)
         self.conv1 = nn.Conv2d(in_feat, in_feat, 1)
-        self.dwconv = nn.Conv2d(in_feat, in_feat, kernel,stride, pad, groups=in_feat)
-        self.dwdconv = nn.Conv2d(in_feat, in_feat, kernel, stride, pad, dilation=kernel, groups=in_feat)
+        self.dwconv = nn.Conv2d(in_feat, in_feat, kernel,stride, padding=0, groups=in_feat)
+        self.dwdconv = nn.Conv2d(in_feat, in_feat, kernel, stride, padding=0, dilation=kernel, groups=in_feat)
         self.conv2 = nn.Conv2d(in_feat, out_feat, 1)
 
     def forward(self,x):
 
         x = self.conv1(x)
+        x = self.refpad(x)
         x = self.dwconv(x)
         x = self.dwdconv(x)
         out = self.conv2(x)
