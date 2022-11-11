@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.functional as F
 from einops import rearrange
+from basic_models import *
 
 class ConvBlock(nn.Module):
     def __init__(self,in_channels, out_channels, activation='None'):
@@ -78,13 +79,18 @@ class SuperResolution(nn.Module):
         self.skipped = SkippedBlock(filters,bottleneck,n_resblock)  # bottleneck is for if a bottleneck structure should be used and sets the filtersize of the bottleneck
         self.up = UpBlock(filters, scale)
         self.conv2 = ConvBlock(filters,3)
-        
+        #self.norm = nn.BatchNorm2d(filters)
+        self.dropout = nn.Dropout2d()
+        self.lrelu = nn.LeakyReLU()
 
     def forward(self,x):
         out = self.conv(x)
         out = self.skipped(out)
+        out = self.dropout(out)
+        out = self.lrelu(out)
         out = self.up(out)
         out = self.conv2(out)
+
 
         return out
 
