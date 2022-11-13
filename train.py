@@ -29,9 +29,9 @@ import myutils
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch EDSR') #D:/Data/div2k/DIV2K_train_HR/
-    parser.add_argument('--train_data_path', type=str, default="D:/Data/div2k/DIV2K_train_HR/", help=("path for the data"))
-    parser.add_argument('--height', type=int, default=512, help=("set the height of the image in pixels"))
-    parser.add_argument('--width', type=int, default=512, help=("set the width of the image in pixels"))
+    parser.add_argument('--train_data_path', type=str, default="C:/Data/DIV2K_train_HR/", help=("path for the data"))
+    parser.add_argument('--height', type=int, default=1024, help=("set the height of the image in pixels"))
+    parser.add_argument('--width', type=int, default=1024, help=("set the width of the image in pixels"))
     parser.add_argument('--crop_size', type=int, default=1024, help=("set the size of the cropping"))
     parser.add_argument('--imgchannels', type=int, default=3, help=("set the channels of the Image (default = RGB)"))
     parser.add_argument('--augment_data', type=bool, default=False, help=("if true augment train data"))
@@ -43,9 +43,9 @@ if __name__ == '__main__':
     parser.add_argument('--mini_batch',type=int, default=16, help='mini batch size')
     parser.add_argument('--resume',type=bool, default=False, help='resume training/ load checkpoint')
     parser.add_argument('--model_type', type=str, default="EDSR", help="set type of model")
-    parser.add_argument('--filters', type=int, default=8, help="set number of filters")
-    parser.add_argument('--bottleneck', type=int, default=8, help="set number of filters")
-    parser.add_argument('--n_resblock', type=int, default=3, help="set number of filters")
+    parser.add_argument('--filters', type=int, default=128, help="set number of filters")
+    parser.add_argument('--bottleneck', type=int, default=128, help="set number of filters")
+    parser.add_argument('--n_resblock', type=int, default=12, help="set number of filters")
     parser.add_argument('--scale', type=int, default=2, help="set number of filters")
     parser.add_argument('--beta1',type=float, default=0.9, help='decay of first order momentum of gradient')
     parser.add_argument('--beta2',type=float, default=0.999, help='decay of first order momentum of gradient')
