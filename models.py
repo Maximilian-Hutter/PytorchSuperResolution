@@ -11,8 +11,8 @@ class ConvBlock(nn.Module):
         super(ConvBlock, self).__init__()
 
         m = [nn.Conv2d(in_channels, out_channels, kernel, stride=1, padding=pad)]
-        if activation != 'None':
-            m.append(nn.LeakyReLU())
+        #if activation != 'None':
+        m.append(nn.LeakyReLU())
         self.models = nn.Sequential(*m)
 
     def forward(self, x):
@@ -25,7 +25,7 @@ class UpBlock(nn.Module):
         
         m = []
         for _ in range(1, scale):
-            m.append(ConvBlock(filters, 4*filters))
+            m.append(DLKCB(filters, 4*filters, pad = 4))
             #m.append(nn.PixelShuffle(2))
             m.append(nn.ConvTranspose2d(4*filters, filters, 3, 2))
 
@@ -89,7 +89,7 @@ class SuperResolution(nn.Module):
         out = self.up(out)
         out = F.pad(out, (0,1,0,1))
         out = self.conv3(out)
-
+        x = torch.div(x, x.max())
         return out
 
 ###############

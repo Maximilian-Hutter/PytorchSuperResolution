@@ -5,6 +5,7 @@ import torch.nn as nn
 import argparse
 import socket
 import torch.backends.cudnn as cudnn
+import time
 from torchsummary import summary
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch EDSR')
@@ -48,7 +49,12 @@ if __name__ == '__main__':
     Net = Net = SuperResolution(opt.filters, opt.bottleneck, opt.n_resblock, opt.scale).cuda()
 
 
-    summary(Net, (opt.imgchannels, opt.height, opt.width))
+    start = time.time()
+    summary(Net, (3, 64, 64))
+    end = time.time()
+
+    proctime = end-start
+    print(proctime)
 
     # pytorch_params = sum(p.numel() for p in Net.parameters())
     # print("Network parameters: {}".format(pytorch_params))
