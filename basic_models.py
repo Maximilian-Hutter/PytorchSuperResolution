@@ -1,27 +1,45 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
-
-class DLKCB(nn.Module):
-    def __init__(self, in_feat, out_feat, kernel=3, stride = 1, pad = 0):
-        super(DLKCB, self).__init__()
-        
-        self.pad = (pad,pad,pad,pad)
-        self.refpad = nn.ReflectionPad2d(self.pad)
-        self.conv1 = nn.Conv2d(in_feat, in_feat, 1)
-        self.dwconv = nn.Conv2d(in_feat, in_feat, kernel,stride, padding=0, groups=in_feat)
-        self.dwdconv = nn.Conv2d(in_feat, in_feat, kernel, stride, padding=0, dilation=kernel, groups=in_feat)
-        self.conv2 = nn.Conv2d(in_feat, out_feat, 1)
+class ChannelShuffle(nn.Module):
+    def __init__(self, groups):
+        super().__init__()
+        self.groups = groups
 
     def forward(self,x):
+        batch, channels, height, width = x.size()
+        assert (channels % self.groups == 0)
+        channels_per_group = channels // self.groups
+        x = x.view(batch, self.groups, channels_per_group, height, width)
+        x = torch.transpose(x, 1, 2).contiguous()
+        out = x.view(batch, channels, height, width)
+        return out
+
+class DLKCB(nn.Module):
+    def __init__(self, in_feat, out_feat, kernel=3, stride = 1, pad = 4):
+        super(DLKCB, self).__init__()
+        
+        self.pad = nn.ReflectionPad2d((pad, pad, pad, pad))
+        self.conv1 = nn.Conv2d(in_feat, in_feat, 1)
+        self.shuffle = ChannelShuffle(in_feat // 4)
+        self.dwconv = nn.Conv2d(in_feat, in_feat, kernel,stride, groups=in_feat)
+        self.dwdconv = nn.Conv2d(in_feat, in_feat, kernel, stride, dilation=kernel, groups=in_feat)
+        self.conv2 = nn.Conv2d(in_feat, out_feat, kernel_size=1)
+        
+    def forward(self,x):
+
+
+        x = self.pad(x)
 
         x = self.conv1(x)
-        x = self.refpad(x)
-        x = self.dwconv(x)
-        x = self.dwdconv(x)
-        out = self.conv2(x)
 
-        return out
+        x = self.dwconv(x)
+
+        x = self.dwdconv(x)
+
+        x = self.conv2(x)
+        x = F.relu(x)
+        return x
 
 class CEFN(nn.Module):
     def __init__(self,feat,pool_kernel,pool_stride, shape):
@@ -60,10 +78,10 @@ class CEFN(nn.Module):
         x2 = self.linear4(x2)
         x2 = self.sigmoid(x2)
 
-        out = torch.mul(x,x2)
-        out = torch.add(out,res)
+        x = torch.mul(x,x2)
+        x = torch.add(x,res)
 
-        return out
+        return x
         
 class ConvBlock(nn.Module):
     def __init__(self, in_feat, out_feat,kernel_size = 3, stride = 1, pad = 1, dilation = 1, groups = 1):
@@ -73,8 +91,8 @@ class ConvBlock(nn.Module):
 
     def forward(self,x):
 
-        out = self.conv(x)
-        return out
+        x = self.conv(x)
+        return x
 
 class DepthWiseConv(nn.Module):
     def __init__(self, in_feat, out_feat, kernel_size, stride,pad, dilation):
@@ -85,5 +103,92 @@ class DepthWiseConv(nn.Module):
     
     def forward(self,x):
         x = self.depth_conv(x)
-        out = self.point_conv(x)
-        return out
+        x = self.point_conv(x)
+        return x
+
+class TransposedUpsample(nn.Module):
+    def __init__(self, in_feat, out_feat, kernel = 11, stride = 2, use_dlkcb = True):
+        super().__init__()
+        self.use_dlkcb = use_dlkcb
+    
+        self.dlkcb = DLKCB(in_feat, out_feat,kernel, pad=60)    # if weird stuff happens disable
+
+        if use_dlkcb is False:
+            padding = 2
+        self.up = nn.ConvTranspose2d(out_feat, out_feat, 2, stride, padding = 0)
+
+    def forward(self,x):
+        if self.use_dlkcb is True:
+            x = self.dlkcb(x)
+
+        x = self.up(x)
+        #print(out.shape)
+
+        return x
+
+class Upsample(nn.Module):
+    def __init__(self, in_feat, scale_factor):
+        super().__init__()
+
+        self.conv = ConvBlock(in_feat, in_feat * scale_factor * scale_factor, 1, 1,0)
+        self.up = nn.PixelShuffle(scale_factor)
+
+    def forward(self,x):
+
+        x = self.conv(x)
+        x = self.up(x)
+
+        return x
+
+class Downsample(nn.Module):
+    def __init__(self, in_feat, out_feat, kernel=3, padding=1):
+        super(Downsample,self).__init__()
+
+        self.conv = nn.Conv2d(in_feat, out_feat,kernel, stride=2, padding=padding)
+
+    def forward(self,x):
+        x = self.conv(x)
+        return x
+
+class ResBlock(nn.Module):
+    def __init__(self,in_feat, inner_feat, kernel,size, pad,stride=1):
+        super(ResBlock, self).__init__()
+        
+        self.pad = nn.ReflectionPad2d((pad, pad, pad, pad))
+        self.shuffle = ChannelShuffle(in_feat)
+        self.dwconv = nn.Conv2d(in_feat, in_feat, kernel,stride, groups=in_feat)
+        self.dwdconv = nn.Conv2d(in_feat, in_feat, kernel, stride, dilation=kernel, groups=in_feat)
+        self.norm = nn.LayerNorm([in_feat,int(size[1]),int(size[0])])
+        self.conv1 = nn.Conv2d(in_feat, inner_feat, 1)
+        self.gelu = nn.GELU()
+        self.conv2 = nn.Conv2d(inner_feat, in_feat, 1)
+        
+    def forward(self, x):
+
+        res = x
+
+        x = self.pad(x)
+        x = self.shuffle(x)
+        x = self.dwconv(x)
+        x = self.dwdconv(x)
+
+        x = self.norm(x)
+        x = self.conv1(x)
+        x = self.gelu(x)
+        x = self.conv2(x)
+
+        x = torch.add(x,res)
+
+        return x
+
+class ResBlockFeatChange(nn.Module):
+    def __init__(self, in_feat, out_feat, inner_feat, kernel, size, pad, stride=1):
+        super(ResBlockFeatChange,self).__init__()
+
+        self.res = ResBlock(in_feat,inner_feat,kernel,size,pad,stride)
+        self.conv = nn.Conv2d(in_feat, out_feat, 1)
+
+    def forward(self,x):
+        x = self.res(x)
+        x = self.conv(x)
+        return x

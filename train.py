@@ -29,10 +29,10 @@ import myutils
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='PyTorch EDSR') #D:/Data/div2k/DIV2K_train_HR/
-    parser.add_argument('--train_data_path', type=str, default="C:/Data/DIV2K_train_HR/", help=("path for the data"))
-    parser.add_argument('--height', type=int, default=1024, help=("set the height of the image in pixels"))
-    parser.add_argument('--width', type=int, default=1024, help=("set the width of the image in pixels"))
-    parser.add_argument('--crop_size', type=int, default=1024, help=("set the size of the cropping"))
+    parser.add_argument('--train_data_path', type=str, default="D:/Data/DIV2K_train_HR/", help=("path for the data"))
+    parser.add_argument('--height', type=int, default=256, help=("set the height of the image in pixels"))
+    parser.add_argument('--width', type=int, default=256, help=("set the width of the image in pixels"))
+    parser.add_argument('--crop_size', type=int, default=512, help=("set the size of the cropping"))
     parser.add_argument('--imgchannels', type=int, default=3, help=("set the channels of the Image (default = RGB)"))
     parser.add_argument('--augment_data', type=bool, default=False, help=("if true augment train data"))
     parser.add_argument('--batchsize', type=int, default=1, help=("set batch Size"))
@@ -43,9 +43,9 @@ if __name__ == '__main__':
     parser.add_argument('--mini_batch',type=int, default=16, help='mini batch size')
     parser.add_argument('--resume',type=bool, default=False, help='resume training/ load checkpoint')
     parser.add_argument('--model_type', type=str, default="EDSR", help="set type of model")
-    parser.add_argument('--filters', type=int, default=128, help="set number of filters")
-    parser.add_argument('--bottleneck', type=int, default=128, help="set number of filters")
-    parser.add_argument('--n_resblock', type=int, default=12, help="set number of filters")
+    parser.add_argument('--filters', type=int, default=16, help="set number of filters")
+    parser.add_argument('--bottleneck', type=int, default=16, help="set number of filters")
+    parser.add_argument('--n_resblock', type=int, default=7, help="set number of filters")
     parser.add_argument('--scale', type=int, default=2, help="set number of filters")
     parser.add_argument('--beta1',type=float, default=0.9, help='decay of first order momentum of gradient')
     parser.add_argument('--beta2',type=float, default=0.999, help='decay of first order momentum of gradient')
@@ -70,14 +70,14 @@ if __name__ == '__main__':
     print(opt)  # print the chosen parameters
 
     # dataloader
-
+    size = (opt.height, opt.width)
     print('==> Loading Datasets')
-    dataloader = DataLoader(ImageDataset(opt.train_data_path,(opt.height, opt.width), opt.crop_size,opt.scale,opt.augment_data), batch_size=opt.batchsize, shuffle=True, num_workers=opt.threads)
+    dataloader = DataLoader(ImageDataset(opt.train_data_path,size, opt.crop_size,opt.scale,opt.augment_data), batch_size=opt.batchsize, shuffle=True, num_workers=opt.threads)
 
     # instantiate model
 
     #Generator = ESRGANplus(opt.channels, filters=opt.filters,hr_shape=hr_shape, n_resblock = opt.n_resblock, upsample = opt.upsample)
-    Net = SuperResolution(opt.filters, opt.bottleneck, opt.n_resblock, opt.scale)
+    Net = SuperResolution(opt.filters, opt.bottleneck, opt.n_resblock, opt.scale, size)
     feature_extractor = FeatureExtractor()
     feature_extractor.eval()
 

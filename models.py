@@ -35,23 +35,23 @@ class UpBlock(nn.Module):
         out = self.model(x)
         return out
 
-class ResBlock(nn.Module):
-    def __init__(self,filters, bottleneck):
-        super(ResBlock, self).__init__()
-        if filters == bottleneck:
-            m=[ConvBlock(filters, filters,activation = 'Relu'), # with Relu
-               ConvBlock(filters, filters)]
-        else:
-            m=[ConvBlock(filters, bottleneck,activation = 'Relu'),ConvBlock(bottleneck,bottleneck),ConvBlock(bottleneck,filters)]
-        self.model = nn.Sequential(*m)
-    def forward(self, x):
+# class ResBlock(nn.Module):
+#     def __init__(self,filters, bottleneck):
+#         super(ResBlock, self).__init__()
+#         if filters == bottleneck:
+#             m=[ConvBlock(filters, filters,activation = 'Relu'), # with Relu
+#                ConvBlock(filters, filters)]
+#         else:
+#             m=[ConvBlock(filters, bottleneck,activation = 'Relu'),ConvBlock(bottleneck,bottleneck),ConvBlock(bottleneck,filters)]
+#         self.model = nn.Sequential(*m)
+#     def forward(self, x):
 
-        res = x
-        out = self.model(x)
-        #out = torch.mul(out, 0.1)
-        out = torch.add(out, res)
+#         res = x
+#         out = self.model(x)
+#         #out = torch.mul(out, 0.1)
+#         out = torch.add(out, res)
 
-        return out
+#         return out
 
 class SkippedBlock(nn.Module):
     def __init__(self, filters,bottleneck, n_resblock):
@@ -73,23 +73,30 @@ class SkippedBlock(nn.Module):
         return out
 
 class SuperResolution(nn.Module):
-    def __init__(self, filters, bottleneck, n_resblock, scale):
+    def __init__(self, filters, bottleneck, n_resblock, scale,size):
         super(SuperResolution,self).__init__()
-
+        size = (size[0]/2, size[1]/2)
         #self.conv = DLKCB(3, filters, pad=4)
         self.conv = ConvBlock(3,filters)
-        self.skipped = SkippedBlock(filters,bottleneck,n_resblock)  # bottleneck is for if a bottleneck structure should be used and sets the filtersize of the bottleneck
+        m = []
+        for i in range(n_resblock):
+            m.append(ResBlock(filters,bottleneck,3,size=size,pad=4))
+        self.res = nn.Sequential(*m)
         self.up = UpBlock(filters, scale)
         self.activ = nn.ReLU()
-        self.conv3 = ConvBlock(filters,3, pad=0)
+        self.conv3 = nn.Conv2d(filters,3, 3,1,padding=0)
 
     def forward(self,x):
         out = self.conv(x)
-        out = self.skipped(out)
+        out = self.res(out)
         out = self.up(out)
         out = F.pad(out, (0,1,0,1))
         out = self.conv3(out)
-        x = torch.div(x, x.max())
+        out = F.relu(out)
+        out = torch.div(out, out.max())
+
+        # print(out.min())
+        # print(out.max())
         return out
 
 ###############

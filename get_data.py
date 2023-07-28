@@ -28,11 +28,13 @@ class ImageDataset(Dataset):
         img = label.resize(size = self.small_size)
         
         transform = transforms.Compose([
-            transforms.ToTensor(),  #### use this !!!
+            transforms.ToTensor(),  
         ])
 
         img = transform(img)
         label = transform(label)
+        img = img.float()
+        label = label.float()
         
         imgs = {"img": img, "label": label}   # create imgs dictionary
 
